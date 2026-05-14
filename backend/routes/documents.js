@@ -3,11 +3,10 @@ const router = express.Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 
-// GET /api/documents - List all documents
+// GET /api/documents - List all documents with pagination
 router.get('/', auth, async (req, res) => {
   try {
-    const { case_id, file_type, review_status, custodian } = req.query;
-    let query = 'SELECT * FROM documents';
+    const { case_id, file_type, review_status, custodian, page, limit } = req.query;
     const conditions = [];
     const params = [];
 
@@ -28,13 +27,31 @@ router.get('/', auth, async (req, res) => {
       conditions.push(`custodian ILIKE $${params.length}`);
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-    query += ' ORDER BY created_at DESC';
+    const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
 
-    const result = await pool.query(query, params);
-    res.json(result.rows);
+    // Pagination
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+    const offset = (pageNum - 1) * limitNum;
+
+    const countResult = await pool.query(`SELECT COUNT(*) FROM documents${whereClause}`, params);
+    const total = parseInt(countResult.rows[0].count);
+
+    const dataParams = [...params, limitNum, offset];
+    const dataResult = await pool.query(
+      `SELECT * FROM documents${whereClause} ORDER BY created_at DESC LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+      dataParams
+    );
+
+    res.json({
+      data: dataResult.rows,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
   } catch (err) {
     console.error('Error fetching documents:', err);
     res.status(500).json({ error: err.message });
@@ -58,6 +75,9 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const { case_id, title, file_type, file_size_mb, custodian, source, review_status, content_preview, date_collected, bates_number, hash_value } = req.body;
+    if (!title || !case_id) {
+      return res.status(400).json({ error: 'Validation failed: title and case_id are required.' });
+    }
     const result = await pool.query(
       `INSERT INTO documents (case_id, title, file_type, file_size_mb, custodian, source, review_status, content_preview, date_collected, bates_number, hash_value)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,

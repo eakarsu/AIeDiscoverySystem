@@ -19,12 +19,15 @@ import {
   Lock,
   CheckSquare,
   Database,
+  Target,
+  Sparkles,
   ChevronLeft,
   ChevronRight,
   LogOut,
   Scale,
   Menu,
   User,
+  UserCircle,
 } from 'lucide-react';
 
 const iconMap = {
@@ -46,6 +49,9 @@ const iconMap = {
   Lock,
   CheckSquare,
   Database,
+  Target,
+  Sparkles,
+  UserCircle,
 };
 
 const navGroups = [
@@ -95,6 +101,15 @@ const navGroups = [
       { path: '/privilege-logs', icon: 'Lock', label: 'Privilege Logs' },
       { path: '/compliance-rules', icon: 'CheckSquare', label: 'Compliance Rules' },
       { path: '/data-sources', icon: 'Database', label: 'Data Sources' },
+    ],
+  },
+  {
+    label: 'AI TOOLS',
+    items: [
+      { path: '/ai-relevance-score', icon: 'Target', label: 'Relevance Scoring' },
+      { path: '/ai-redaction-suggest', icon: 'Sparkles', label: 'Redaction Suggest' },
+      { path: '/ai-email-thread-cluster', icon: 'Mail', label: 'Email Thread Cluster' },
+      { path: '/ai-witness-profile', icon: 'UserCircle', label: 'Witness Profile' },
     ],
   },
 ];
@@ -242,6 +257,10 @@ function getPageTitle(pathname) {
     '/privilege-logs': 'Privilege Logs',
     '/compliance-rules': 'Compliance Rules',
     '/data-sources': 'Data Sources',
+    '/ai-relevance-score': 'AI Relevance Scoring',
+    '/ai-redaction-suggest': 'AI Redaction Suggestions',
+    '/ai-email-thread-cluster': 'AI Email Thread Clustering',
+    '/ai-witness-profile': 'AI Witness Profile',
   };
 
   for (const [path, title] of Object.entries(map)) {

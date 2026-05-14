@@ -3,11 +3,10 @@ const router = express.Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 
-// GET /api/cases - List all cases
+// GET /api/cases - List all cases with pagination
 router.get('/', auth, async (req, res) => {
   try {
-    const { status, matter_type, priority, lead_attorney } = req.query;
-    let query = 'SELECT * FROM cases';
+    const { status, matter_type, priority, lead_attorney, page, limit } = req.query;
     const conditions = [];
     const params = [];
 
@@ -28,13 +27,31 @@ router.get('/', auth, async (req, res) => {
       conditions.push(`lead_attorney ILIKE $${params.length}`);
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-    query += ' ORDER BY created_at DESC';
+    const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
 
-    const result = await pool.query(query, params);
-    res.json(result.rows);
+    // Pagination
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+    const offset = (pageNum - 1) * limitNum;
+
+    const countResult = await pool.query(`SELECT COUNT(*) FROM cases${whereClause}`, params);
+    const total = parseInt(countResult.rows[0].count);
+
+    const dataParams = [...params, limitNum, offset];
+    const dataResult = await pool.query(
+      `SELECT * FROM cases${whereClause} ORDER BY created_at DESC LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+      dataParams
+    );
+
+    res.json({
+      data: dataResult.rows,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
   } catch (err) {
     console.error('Error fetching cases:', err);
     res.status(500).json({ error: err.message });
@@ -58,6 +75,9 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const { case_name, case_number, client_name, matter_type, status, description, lead_attorney, date_filed, court_jurisdiction, opposing_counsel, priority } = req.body;
+    if (!case_name) {
+      return res.status(400).json({ error: 'Validation failed: case_name (name) is required.' });
+    }
     const result = await pool.query(
       `INSERT INTO cases (case_name, case_number, client_name, matter_type, status, description, lead_attorney, date_filed, court_jurisdiction, opposing_counsel, priority)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,

@@ -17,9 +17,15 @@ CREATE TABLE users (
     role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'attorney', 'reviewer', 'paralegal')),
     firm_name VARCHAR(255),
     is_active BOOLEAN DEFAULT TRUE,
+    reset_token VARCHAR(255),
+    reset_token_expiry TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Add password reset cols if upgrading
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP;
 
 -- ============================================================
 -- 2. CASES
@@ -371,6 +377,126 @@ CREATE INDEX idx_anomaly_alerts_case_id ON anomaly_alerts(case_id);
 CREATE INDEX idx_anomaly_alerts_severity ON anomaly_alerts(severity);
 CREATE INDEX idx_data_sources_case_id ON data_sources(case_id);
 CREATE INDEX idx_users_email ON users(email);
+
+-- ============================================================
+-- AI LOGS (audit trail with ai_results JSONB)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS ai_logs (
+    id SERIAL PRIMARY KEY,
+    endpoint VARCHAR(255) NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    case_id INTEGER REFERENCES cases(id) ON DELETE SET NULL,
+    document_id INTEGER REFERENCES documents(id) ON DELETE SET NULL,
+    input JSONB,
+    ai_results JSONB,
+    raw_response TEXT,
+    model VARCHAR(255),
+    tokens_used INTEGER,
+    latency_ms INTEGER,
+    status VARCHAR(50) DEFAULT 'success' CHECK (status IN ('success','parse_failed','error')),
+    synthesized BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_endpoint ON ai_logs(endpoint);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_user_id ON ai_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_case_id ON ai_logs(case_id);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_document_id ON ai_logs(document_id);
+
+-- ============================================================
+-- DOCUMENT FILES (uploaded files + extracted text + hash for dedup)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS document_files (
+    id SERIAL PRIMARY KEY,
+    document_id INTEGER REFERENCES documents(id) ON DELETE CASCADE,
+    filename VARCHAR(500),
+    storage_path VARCHAR(1000),
+    file_hash VARCHAR(128),
+    extracted_text TEXT,
+    extraction_status VARCHAR(50) DEFAULT 'pending' CHECK (extraction_status IN ('pending','extracted','failed','duplicate')),
+    duplicate_of INTEGER REFERENCES document_files(id) ON DELETE SET NULL,
+    uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    uploaded_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_document_files_hash ON document_files(file_hash);
+CREATE INDEX IF NOT EXISTS idx_document_files_document_id ON document_files(document_id);
+
+-- ============================================================
+-- TAR (Technology-Assisted Review) seed decisions and scores
+-- ============================================================
+CREATE TABLE IF NOT EXISTS tar_seed_decisions (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    document_id INTEGER REFERENCES documents(id) ON DELETE CASCADE,
+    decision VARCHAR(50) NOT NULL CHECK (decision IN ('relevant','not_relevant','privileged','hot')),
+    confidence DECIMAL(3,2),
+    reviewer_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tar_predictions (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    document_id INTEGER REFERENCES documents(id) ON DELETE CASCADE,
+    predicted_relevance DECIMAL(4,3),
+    predicted_label VARCHAR(50),
+    is_borderline BOOLEAN DEFAULT FALSE,
+    ai_results JSONB,
+    raw_response TEXT,
+    model VARCHAR(255),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tar_seed_case ON tar_seed_decisions(case_id);
+CREATE INDEX IF NOT EXISTS idx_tar_predictions_case ON tar_predictions(case_id);
+CREATE INDEX IF NOT EXISTS idx_tar_predictions_borderline ON tar_predictions(is_borderline);
+
+-- ============================================================
+-- Email thread groups (reconstruction)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS email_thread_groups (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    subject VARCHAR(500),
+    participants TEXT[],
+    message_ids JSONB,
+    gap_count INTEGER DEFAULT 0,
+    gaps_detected JSONB,
+    ai_summary TEXT,
+    ai_results JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_email_thread_groups_case_id ON email_thread_groups(case_id);
+
+-- ============================================================
+-- Privilege log exports
+-- ============================================================
+CREATE TABLE IF NOT EXISTS privilege_log_exports (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    generated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    document_count INTEGER,
+    storage_path VARCHAR(1000),
+    file_format VARCHAR(20) DEFAULT 'pdf',
+    ai_summary TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
+-- Deposition video timelines (chapters)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS deposition_timelines (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    deposition_name VARCHAR(255),
+    witness_name VARCHAR(255),
+    chapters JSONB,
+    linked_event_ids JSONB,
+    linked_exhibit_doc_ids JSONB,
+    ai_results JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_deposition_timelines_case_id ON deposition_timelines(case_id);
 CREATE INDEX idx_cases_status ON cases(status);
 CREATE INDEX idx_cases_case_number ON cases(case_number);
 
