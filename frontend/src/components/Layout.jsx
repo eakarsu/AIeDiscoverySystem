@@ -21,6 +21,7 @@ import {
   Database,
   Target,
   Sparkles,
+  Layers,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -52,6 +53,7 @@ const iconMap = {
   Target,
   Sparkles,
   UserCircle,
+  Layers,
 };
 
 const navGroups = [
@@ -110,6 +112,12 @@ const navGroups = [
       { path: '/ai-redaction-suggest', icon: 'Sparkles', label: 'Redaction Suggest' },
       { path: '/ai-email-thread-cluster', icon: 'Mail', label: 'Email Thread Cluster' },
       { path: '/ai-witness-profile', icon: 'UserCircle', label: 'Witness Profile' },
+    ],
+  },
+  {
+    label: 'CUSTOM VIEWS',
+    items: [
+      { path: '/custom-views', icon: 'Layers', label: 'eDiscovery Views' },
     ],
   },
 ];
@@ -261,6 +269,7 @@ function getPageTitle(pathname) {
     '/ai-redaction-suggest': 'AI Redaction Suggestions',
     '/ai-email-thread-cluster': 'AI Email Thread Clustering',
     '/ai-witness-profile': 'AI Witness Profile',
+    '/custom-views': 'eDiscovery Views',
   };
 
   for (const [path, title] of Object.entries(map)) {

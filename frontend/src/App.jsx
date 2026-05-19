@@ -17,6 +17,7 @@ import PrivilegeRateReportPage from './pages/PrivilegeRateReportPage';
 import { features } from './config/features';
 
 import Batch03Features from './pages/Batch03Features';
+import CustomViewsPage from './pages/CustomViewsPage';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
@@ -110,6 +111,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <PrivilegeRateReportPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/custom-views"
+        element={
+          <ProtectedRoute>
+            <CustomViewsPage />
           </ProtectedRoute>
         }
       />

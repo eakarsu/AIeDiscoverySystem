@@ -103,6 +103,9 @@ app.use('/api/cost-projection', require('./routes/costProjection'));
 app.use('/api/custodian-portal', require('./routes/custodianPortal'));
 app.use('/api/chain-of-custody', require('./routes/chainOfCustody'));
 
+// Custom Views (4 endpoints: VIZ + NON-VIZ) - MUST be mounted BEFORE 404 handler
+app.use('/api/custom-views', require('./routes/customViews'));
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
