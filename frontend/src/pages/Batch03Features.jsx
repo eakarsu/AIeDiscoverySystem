@@ -1,0 +1,99 @@
+// === Batch 03 Gaps & Frontend Mounts ===
+// Auto-generated frontend page (lean v0). Wires Custom Feature Suggestions
+// and Gap endpoints (AI counterparts + non-AI features) to backend routes.
+import React, { useState } from 'react';
+
+const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) || 'http://localhost:4000/api';
+
+const FEATURES = [
+  { kind: 'cfs', slug: 'cf-agentic-discovery', label: 'Agentic discovery', desc: 'NL query → chained searches, grouped threads, summary', endpoint: '/cf-agentic-discovery' },
+  { kind: 'cfs', slug: 'cf-deposition-video-sync', label: 'Deposition video sync', desc: 'Timeline aligned with video for live reference', endpoint: '/cf-deposition-video-sync' },
+  { kind: 'cfs', slug: 'cf-court-format-export', label: 'Court-format export', desc: 'TIFF + LOAD files for opposing counsel', endpoint: '/cf-court-format-export' },
+  { kind: 'cfs', slug: 'cf-predictive-coding-feedback-loop', label: 'Predictive-coding feedback loop', desc: 'Re-train after each review pass', endpoint: '/cf-predictive-coding-feedback-loop' },
+  { kind: 'cfs', slug: 'cf-cost-projection', label: 'Cost projection', desc: 'Estimate review hours/cost from volume', endpoint: '/cf-cost-projection' },
+  { kind: 'cfs', slug: 'cf-third-party-custodian-portal', label: 'Third-party custodian portal', desc: 'Secure upload UI for external sources', endpoint: '/cf-third-party-custodian-portal' },
+  { kind: 'cfs', slug: 'cf-blockchain-chain-of-custody', label: 'Blockchain chain-of-custody', desc: 'Immutable access log', endpoint: '/cf-blockchain-chain-of-custody' },
+  { kind: 'gap-ai', slug: 'gap-ai-no-video-deposition-transcription-sync', label: 'No video-deposition transcription/sync', desc: 'No video-deposition transcription/sync', endpoint: '/gap-no-video-deposition-transcription-sync' },
+  { kind: 'gap-ai', slug: 'gap-ai-no-automated-pii-redaction-execution-only-suggestion', label: 'No automated PII redaction execution (only suggestion)', desc: 'No automated PII redaction execution (only suggestion)', endpoint: '/gap-no-automated-pii-redaction-execution-only-suggestion' },
+  { kind: 'gap-ai', slug: 'gap-ai-no-cost-projection-ai-from-doc-volume', label: 'No cost-projection AI from doc-volume', desc: 'No cost-projection AI from doc-volume', endpoint: '/gap-no-cost-projection-ai-from-doc-volume' },
+  { kind: 'gap-non', slug: 'gap-non-no-webhooks-no-external-data-source-push', label: 'No webhooks (no external data-source push)', desc: 'No webhooks (no external data-source push)', endpoint: '/gap-no-webhooks-no-external-data-source-push' },
+  { kind: 'gap-non', slug: 'gap-non-limited-integration-no-email-server-connector-o365-ingest', label: 'Limited integration (no email-server connector / O365 ingest', desc: 'Limited integration (no email-server connector / O365 ingest endpoint surfaced)', endpoint: '/gap-limited-integration-no-email-server-connector-o365-ingest' },
+  { kind: 'gap-non', slug: 'gap-non-no-two-factor-authentication-endpoint', label: 'No two-factor authentication endpoint', desc: 'No two-factor authentication endpoint', endpoint: '/gap-no-two-factor-authentication-endpoint' },
+  { kind: 'gap-non', slug: 'gap-non-no-third-party-custodian-self-service-portal', label: 'No third-party custodian self-service portal', desc: 'No third-party custodian self-service portal', endpoint: '/gap-no-third-party-custodian-self-service-portal' },
+  { kind: 'gap-non', slug: 'gap-non-no-chain-of-custody-blockchain-audit-trail', label: 'No chain-of-custody/blockchain audit trail', desc: 'No chain-of-custody/blockchain audit trail', endpoint: '/gap-no-chain-of-custody-blockchain-audit-trail' },
+];
+
+function authHeaders() {
+  const t = (typeof window !== 'undefined') ? localStorage.getItem('token') : null;
+  return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) };
+}
+
+export default function Batch03Features() {
+  const [active, setActive] = useState(FEATURES[0]?.slug);
+  const [input, setInput] = useState('');
+  const [results, setResults] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const current = FEATURES.find(f => f.slug === active) || FEATURES[0];
+
+  async function run() {
+    if (!current) return;
+    setLoading(true); setError(null);
+    try {
+      let parsed;
+      try { parsed = input ? JSON.parse(input) : {}; } catch { parsed = { input }; }
+      const r = await fetch(`${API_BASE}${current.endpoint}`, {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify(parsed)
+      });
+      let body; try { body = await r.json(); } catch { body = { raw: await r.text() }; }
+      if (!r.ok) setError(body.error || `HTTP ${r.status}`);
+      setResults(prev => ({ ...prev, [current.slug]: body }));
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif' }}>
+      <h2 style={{ marginTop: 0 }}>Batch 03 Features <small style={{ color: '#64748b', fontWeight: 400 }}>(AIeDiscoverySystem)</small></h2>
+      <p style={{ color: '#475569', maxWidth: 720 }}>
+        Audit-driven AI counterparts, non-AI feature gaps, and custom feature suggestions.
+        Backend endpoints prefixed <code>/api/cf-*</code> (custom features) and <code>/api/gap-*</code> (gap fills).
+      </p>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
+        {FEATURES.map(f => (
+          <button key={f.slug} onClick={() => setActive(f.slug)}
+            style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #cbd5e1',
+                     background: active === f.slug ? '#1e40af' : '#f8fafc',
+                     color: active === f.slug ? 'white' : '#0f172a', cursor: 'pointer', fontSize: 12 }}>
+            <span style={{ opacity: 0.7, marginRight: 4 }}>[{f.kind}]</span>{f.label}
+          </button>
+        ))}
+      </div>
+      {current && (
+        <div style={{ marginTop: 16, padding: 16, background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+          <div style={{ marginBottom: 8 }}>
+            <strong>{current.label}</strong>
+            <div style={{ color: '#475569', fontSize: 13 }}>{current.desc}</div>
+            <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>POST <code>{current.endpoint}</code></div>
+          </div>
+          <textarea value={input} onChange={e => setInput(e.target.value)}
+            placeholder='Optional JSON input (e.g. {"query":"..."})'
+            style={{ width: '100%', minHeight: 80, padding: 8, fontFamily: 'monospace', fontSize: 12, border: '1px solid #cbd5e1', borderRadius: 4 }} />
+          <div style={{ marginTop: 8 }}>
+            <button onClick={run} disabled={loading}
+              style={{ padding: '8px 16px', background: '#1e40af', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>
+              {loading ? 'Running…' : 'Run'}
+            </button>
+          </div>
+          {error && (<div style={{ marginTop: 12, padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 4, fontSize: 13 }}>{error}</div>)}
+          {results[current.slug] && (
+            <pre style={{ marginTop: 12, padding: 10, background: '#0b1020', color: '#cbd5e1', borderRadius: 4, overflow: 'auto', maxHeight: 360, fontSize: 12 }}>
+              {typeof results[current.slug] === 'string' ? results[current.slug] : JSON.stringify(results[current.slug], null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
