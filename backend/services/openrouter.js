@@ -1,6 +1,7 @@
-const fetch = require('node-fetch');
+// Use Node 18+ global fetch (node-fetch v3 is ESM-only and breaks require())
+const fetch = globalThis.fetch;
 
-async function callOpenRouter(messages, systemPrompt, model = 'anthropic/claude-3-5-sonnet-20241022') {
+async function callOpenRouter(messages, systemPrompt, model = process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022') {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const allowMocks = process.env.ALLOW_AI_MOCKS === 'true' || process.env.NODE_ENV !== 'production';
 
