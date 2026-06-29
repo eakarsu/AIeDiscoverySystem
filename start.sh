@@ -10,7 +10,7 @@
 # 4. Starts backend and frontend with hot-reload
 # ============================================================
 
-set -e
+set -Eeuo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -22,7 +22,8 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
 
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+PROJECT_NAME="$(basename "$PROJECT_DIR")"
 
 echo -e "${PURPLE}${BOLD}"
 echo "╔══════════════════════════════════════════════════════════╗"
@@ -33,12 +34,68 @@ echo -e "${NC}"
 
 # Load environment variables
 if [ -f "$PROJECT_DIR/.env" ]; then
-    export $(grep -v '^#' "$PROJECT_DIR/.env" | xargs)
+    set -a
+    # shellcheck source=/dev/null
+    source "$PROJECT_DIR/.env"
+    set +a
     echo -e "${GREEN}✓ Environment variables loaded${NC}"
 else
     echo -e "${RED}✗ .env file not found! Please create one.${NC}"
     exit 1
 fi
+
+derive_db_env_from_database_url() {
+    if [ -z "${DATABASE_URL:-}" ]; then
+        return
+    fi
+
+    local url="${DATABASE_URL#*://}"
+    local auth_host="${url%%/*}"
+    local db_path="${url#*/}"
+    local auth=""
+    local host_port=""
+
+    DB_NAME="${DB_NAME:-${db_path%%\?*}}"
+
+    if [[ "$auth_host" == *"@"* ]]; then
+        auth="${auth_host%@*}"
+        host_port="${auth_host#*@}"
+        DB_USER="${DB_USER:-${auth%%:*}}"
+        if [[ "$auth" == *":"* ]]; then
+            DB_PASSWORD="${DB_PASSWORD:-${auth#*:}}"
+        fi
+    else
+        host_port="$auth_host"
+    fi
+
+    DB_HOST="${DB_HOST:-${host_port%%:*}}"
+    if [[ "$host_port" == *":"* ]]; then
+        DB_PORT="${DB_PORT:-${host_port##*:}}"
+    fi
+}
+
+derive_db_env_from_database_url
+
+DB_HOST="${DB_HOST:-localhost}"
+DB_PORT="${DB_PORT:-5432}"
+DB_USER="${DB_USER:-$(whoami)}"
+DB_PASSWORD="${DB_PASSWORD:-}"
+
+if [ -z "${DB_NAME:-}" ]; then
+    echo -e "${RED}✗ DB_NAME is empty and could not be derived from DATABASE_URL.${NC}"
+    echo -e "${YELLOW}  Add DB_NAME=aiediscoverysystem_db or DATABASE_URL=postgresql://user@localhost:5432/aiediscoverysystem_db${NC}"
+    exit 1
+fi
+
+export DB_HOST DB_PORT DB_USER DB_PASSWORD DB_NAME
+
+psql_with_optional_password() {
+    if [ -n "${DB_PASSWORD:-}" ]; then
+        PGPASSWORD="$DB_PASSWORD" psql "$@"
+    else
+        psql "$@"
+    fi
+}
 
 # ============================================================
 # Step 1: Clean up used ports
@@ -47,18 +104,72 @@ echo -e "\n${CYAN}${BOLD}[Step 1/5] Cleaning up ports...${NC}"
 
 cleanup_port() {
     local port=$1
-    local pids=$(lsof -ti :$port 2>/dev/null || true)
+    local pids
+    local related_pids=""
+    pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN -n -P 2>/dev/null || true)
     if [ -n "$pids" ]; then
         echo -e "${YELLOW}  Killing processes on port $port: $pids${NC}"
-        echo "$pids" | xargs kill -9 2>/dev/null || true
-        sleep 1
+        for pid in $pids; do
+            local ppid
+            ppid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ' || true)
+            if [ -n "$ppid" ] && [ "$ppid" != "1" ]; then
+                local parent_cmd
+                parent_cmd=$(ps -o command= -p "$ppid" 2>/dev/null || true)
+                if [[ "$parent_cmd" =~ nodemon|npm|vite|node ]]; then
+                    related_pids="$related_pids $ppid"
+                fi
+            fi
+        done
+        kill -TERM $pids $related_pids 2>/dev/null || true
+        sleep 0.5
+        pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN -n -P 2>/dev/null || true)
+        if [ -n "$pids" ]; then
+            kill -9 $pids $related_pids 2>/dev/null || true
+            sleep 0.5
+        fi
     else
         echo -e "${GREEN}  Port $port is available${NC}"
     fi
 }
 
+cleanup_project_watchers() {
+    local pids
+    pids=$(ps -axo pid=,command= | awk -v dir="$PROJECT_DIR" -v name="$PROJECT_NAME" '
+        (index($0, dir) || index($0, name)) && ($0 ~ /nodemon|server\.js|vite/) { print $1 }
+    ' | tr '\n' ' ')
+    if [ -n "${pids// /}" ]; then
+        echo -e "${YELLOW}  Stopping existing AIeDiscoverySystem watchers: $pids${NC}"
+        kill -TERM $pids 2>/dev/null || true
+        sleep 0.5
+        pids=$(ps -axo pid=,command= | awk -v dir="$PROJECT_DIR" -v name="$PROJECT_NAME" '
+            (index($0, dir) || index($0, name)) && ($0 ~ /nodemon|server\.js|vite/) { print $1 }
+        ' | tr '\n' ' ')
+        if [ -n "${pids// /}" ]; then
+            kill -9 $pids 2>/dev/null || true
+            sleep 0.5
+        fi
+    fi
+}
+
+wait_for_port_free() {
+    local port=$1
+    for _ in {1..20}; do
+        if ! lsof -tiTCP:"$port" -sTCP:LISTEN -n -P >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.25
+    done
+    echo -e "${RED}✗ Port $port is still in use after cleanup:${NC}"
+    lsof -iTCP:"$port" -sTCP:LISTEN -n -P || true
+    exit 1
+}
+
+cleanup_project_watchers
 cleanup_port 3000
 cleanup_port 3001
+cleanup_project_watchers
+wait_for_port_free 3000
+wait_for_port_free 3001
 
 # ============================================================
 # Step 2: Setup PostgreSQL Database
@@ -79,24 +190,31 @@ if ! pg_isready -h ${DB_HOST:-localhost} -p ${DB_PORT:-5432} > /dev/null 2>&1; t
 fi
 echo -e "${GREEN}  ✓ PostgreSQL is running${NC}"
 
-# Create user if not exists
-psql -h ${DB_HOST:-localhost} -p ${DB_PORT:-5432} -U postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" 2>/dev/null | grep -q 1 || \
-    psql -h ${DB_HOST:-localhost} -p ${DB_PORT:-5432} -U postgres -c "CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}' CREATEDB;" 2>/dev/null || true
-echo -e "${GREEN}  ✓ Database user ready${NC}"
+DB_ADMIN_USER="${POSTGRES_ADMIN_USER:-postgres}"
+if ! psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_ADMIN_USER" -d postgres -c "SELECT 1;" >/dev/null 2>&1; then
+    DB_ADMIN_USER="$DB_USER"
+fi
+
+# Create user if an admin role is available. Local macOS Postgres often already uses the current user.
+if [ "$DB_ADMIN_USER" != "$DB_USER" ]; then
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_ADMIN_USER" -d postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" 2>/dev/null | grep -q 1 || \
+        psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_ADMIN_USER" -d postgres -c "CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}' CREATEDB;"
+fi
+echo -e "${GREEN}  ✓ Database user ready: ${DB_USER}${NC}"
 
 # Drop and recreate database
-psql -h ${DB_HOST:-localhost} -p ${DB_PORT:-5432} -U postgres -c "DROP DATABASE IF EXISTS ${DB_NAME};" 2>/dev/null || true
-psql -h ${DB_HOST:-localhost} -p ${DB_PORT:-5432} -U postgres -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};" 2>/dev/null || true
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_ADMIN_USER" -d postgres -c "DROP DATABASE IF EXISTS ${DB_NAME};"
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_ADMIN_USER" -d postgres -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
 echo -e "${GREEN}  ✓ Database created: ${DB_NAME}${NC}"
 
 # Run schema
 echo -e "${YELLOW}  Running schema migration...${NC}"
-PGPASSWORD=${DB_PASSWORD} psql -h ${DB_HOST:-localhost} -p ${DB_PORT:-5432} -U ${DB_USER} -d ${DB_NAME} -f "$PROJECT_DIR/backend/db/schema.sql" > /dev/null 2>&1
+psql_with_optional_password -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$PROJECT_DIR/backend/db/schema.sql"
 echo -e "${GREEN}  ✓ Schema created (18 tables)${NC}"
 
 # Run seed data
 echo -e "${YELLOW}  Seeding database...${NC}"
-PGPASSWORD=${DB_PASSWORD} psql -h ${DB_HOST:-localhost} -p ${DB_PORT:-5432} -U ${DB_USER} -d ${DB_NAME} -f "$PROJECT_DIR/backend/db/seed.sql" > /dev/null 2>&1
+psql_with_optional_password -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$PROJECT_DIR/backend/db/seed.sql"
 echo -e "${GREEN}  ✓ Database seeded (15+ items per table)${NC}"
 
 # ============================================================
@@ -175,8 +293,9 @@ echo -e "${NC}"
 # Trap to cleanup on exit
 cleanup() {
     echo -e "\n${YELLOW}Shutting down services...${NC}"
-    kill $BACKEND_PID 2>/dev/null || true
-    kill $FRONTEND_PID 2>/dev/null || true
+    if [ -n "${BACKEND_PID:-}" ]; then kill "$BACKEND_PID" 2>/dev/null || true; fi
+    if [ -n "${FRONTEND_PID:-}" ]; then kill "$FRONTEND_PID" 2>/dev/null || true; fi
+    cleanup_project_watchers
     cleanup_port 3000
     cleanup_port 3001
     echo -e "${GREEN}✓ All services stopped${NC}"

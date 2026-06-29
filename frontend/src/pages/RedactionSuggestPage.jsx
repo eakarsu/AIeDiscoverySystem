@@ -25,6 +25,21 @@ export default function RedactionSuggestPage() {
     };
   }, []);
 
+  const findDocument = (matcher) => documents.find(matcher) || documents[0];
+
+  const applyPreset = (label) => {
+    const textOf = (d) => `${d.title} ${d.content_preview} ${d.bates_number}`;
+    const presets = {
+      pii: findDocument((d) => /pii|customer|ssn|breach|notification/i.test(textOf(d))),
+      privilege: findDocument((d) => /legal|privileged|counsel|draft|board/i.test(textOf(d))),
+      tradeSecret: findDocument((d) => /algorithm|source code|design specification|non-compete/i.test(textOf(d))),
+    };
+    const document = presets[label];
+    if (!document) return;
+    setDocumentId(String(document.id));
+    setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!documentId) {
@@ -98,6 +113,17 @@ export default function RedactionSuggestPage() {
         onSubmit={handleSubmit}
         className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 space-y-4"
       >
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => applyPreset('pii')} className="px-3 py-1.5 rounded-lg bg-blue-500/15 border border-blue-500/30 text-xs font-semibold text-blue-300 hover:bg-blue-500/25">
+            PII breach document
+          </button>
+          <button type="button" onClick={() => applyPreset('privilege')} className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-xs font-semibold text-red-300 hover:bg-red-500/25">
+            Privilege review
+          </button>
+          <button type="button" onClick={() => applyPreset('tradeSecret')} className="px-3 py-1.5 rounded-lg bg-orange-500/15 border border-orange-500/30 text-xs font-semibold text-orange-300 hover:bg-orange-500/25">
+            Trade secret redaction
+          </button>
+        </div>
         <div>
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
             Document

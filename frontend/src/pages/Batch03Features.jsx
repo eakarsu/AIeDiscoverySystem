@@ -2,8 +2,8 @@
 // Auto-generated frontend page (lean v0). Wires Custom Feature Suggestions
 // and Gap endpoints (AI counterparts + non-AI features) to backend routes.
 import React, { useState } from 'react';
-
-const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) || 'http://localhost:4000/api';
+import { API_BASE } from '../api';
+import StructuredAIResult from '../components/StructuredAIResult';
 
 const FEATURES = [
   { kind: 'cfs', slug: 'cf-agentic-discovery', label: 'Agentic discovery', desc: 'NL query → chained searches, grouped threads, summary', endpoint: '/cf-agentic-discovery' },
@@ -35,18 +35,19 @@ export default function Batch03Features() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const current = FEATURES.find(f => f.slug === active) || FEATURES[0];
   const sampleRequests = [
       {
-          "label": "Scenario",
-          "value": "Run Batch03 Features for a realistic customer case.\nContext: a team needs a practical recommendation based on incomplete operating data.\nGoal: identify the best action, key risks, missing information, and expected business impact.\nReturn: summary, prioritized action plan, assumptions, and follow-up questions."
+          "label": "Customer implementation",
+          "value": `Run ${current?.label || 'this feature'} for a realistic eDiscovery customer case.\nContext: litigation support needs ${current?.desc || 'this capability'} with incomplete operating data.\nUse case: active matter with custodians, documents, deadlines, privilege risk, production pressure, and audit requirements.\nReturn: executive summary, prioritized action plan, owner, due date, risks, missing information, and expected business impact.`
       },
       {
-          "label": "Data sample",
-          "value": "Analyze this Batch03 Features data sample.\nInput records:\n- Record 1: urgent, customer impact high, owner unassigned\n- Record 2: medium priority, blocked by missing data\n- Record 3: recurring issue, automation opportunity\nReturn structured findings, anomalies, recommendations, and confidence."
+          "label": "Operational records",
+          "value": `Analyze this ${current?.label || 'feature'} operational sample.\nInput records:\n- Record 1: urgent matter, court deadline in 7 days, owner unassigned\n- Record 2: medium priority, blocked by missing custodian data\n- Record 3: recurring review delay, automation opportunity\n- Record 4: privileged document risk, needs attorney approval\nReturn structured findings, anomalies, recommendations, confidence, escalation path, and follow-up questions.`
       },
       {
-          "label": "Executive review",
-          "value": "Prepare an executive review for Batch03 Features.\nAudience: business owner, operations lead, and implementation team.\nInclude impact, risk, estimated effort, decision points, and a concise next-step plan."
+          "label": "Executive decision",
+          "value": `Prepare an executive decision memo for ${current?.label || 'this feature'}.\nAudience: managing partner, litigation operations lead, IT/security owner, and review manager.\nInclude business impact, legal risk, data/security considerations, estimated effort, implementation sequence, KPI targets, and go/no-go decision points.`
       }
   ];
 
@@ -54,7 +55,6 @@ export default function Batch03Features() {
     setInput(value);
     setError(null);
   };
-  const current = FEATURES.find(f => f.slug === active) || FEATURES[0];
 
   async function run() {
     if (!current) return;
@@ -74,36 +74,38 @@ export default function Batch03Features() {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif' }}>
-      <h2 style={{ marginTop: 0 }}>Batch 03 Features <small style={{ color: '#64748b', fontWeight: 400 }}>(AIeDiscoverySystem)</small></h2>
-      <p style={{ color: '#475569', maxWidth: 720 }}>
+    <div className="mx-auto max-w-6xl">
+      <h2 className="text-xl font-semibold text-white">Batch 03 Features <small className="font-normal text-slate-500">(AIeDiscoverySystem)</small></h2>
+      <p className="mt-2 max-w-3xl text-sm text-slate-400">
         Audit-driven AI counterparts, non-AI feature gaps, and custom feature suggestions.
         Backend endpoints prefixed <code>/api/cf-*</code> (custom features) and <code>/api/gap-*</code> (gap fills).
       </p>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
+      <div className="my-4 flex flex-wrap gap-2">
         {FEATURES.map(f => (
           <button key={f.slug} onClick={() => setActive(f.slug)}
-            style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #cbd5e1',
-                     background: active === f.slug ? '#1e40af' : '#f8fafc',
-                     color: active === f.slug ? 'white' : '#0f172a', cursor: 'pointer', fontSize: 12 }}>
-            <span style={{ opacity: 0.7, marginRight: 4 }}>[{f.kind}]</span>{f.label}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              active === f.slug
+                ? 'border-blue-500 bg-blue-500/25 text-blue-100'
+                : 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}>
+            <span className="mr-1 opacity-70">[{f.kind}]</span>{f.label}
           </button>
         ))}
       </div>
       {current && (
-        <div style={{ marginTop: 16, padding: 16, background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-          <div style={{ marginBottom: 8 }}>
-            <strong>{current.label}</strong>
-            <div style={{ color: '#475569', fontSize: 13 }}>{current.desc}</div>
-            <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>POST <code>{current.endpoint}</code></div>
+        <div className="mt-4 rounded-xl border border-slate-700 bg-slate-800/40 p-5">
+          <div className="mb-3">
+            <strong className="text-white">{current.label}</strong>
+            <div className="text-sm text-slate-400">{current.desc}</div>
+            <div className="mt-1 text-xs text-slate-500">POST <code>{current.endpoint}</code></div>
           </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        <div className="mb-3 flex flex-wrap gap-2">
           {sampleRequests.map((sample) => (
             <button
               key={sample.label}
               type="button"
               onClick={() => applySampleRequest(sample.value)}
-              style={{ padding: '6px 10px', background: '#eef2ff', color: '#1e3a8a', border: '1px solid #c7d2fe', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+              className="rounded-lg border border-blue-500/30 bg-blue-500/15 px-3 py-1.5 text-xs font-semibold text-blue-300 hover:bg-blue-500/25"
             >
               {sample.label}
             </button>
@@ -112,19 +114,15 @@ export default function Batch03Features() {
 
           <textarea value={input} onChange={e => setInput(e.target.value)}
             placeholder='Optional JSON input (e.g. {"query":"..."})'
-            style={{ width: '100%', minHeight: 80, padding: 8, fontFamily: 'monospace', fontSize: 12, border: '1px solid #cbd5e1', borderRadius: 4 }} />
-          <div style={{ marginTop: 8 }}>
+            className="min-h-28 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-slate-100 placeholder:text-slate-600 focus:border-blue-500 focus:outline-none" />
+          <div className="mt-3">
             <button onClick={run} disabled={loading}
-              style={{ padding: '8px 16px', background: '#1e40af', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>
+              className="rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">
               {loading ? 'Running…' : 'Run'}
             </button>
           </div>
-          {error && (<div style={{ marginTop: 12, padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 4, fontSize: 13 }}>{error}</div>)}
-          {results[current.slug] && (
-            <pre style={{ marginTop: 12, padding: 10, background: '#0b1020', color: '#cbd5e1', borderRadius: 4, overflow: 'auto', maxHeight: 360, fontSize: 12 }}>
-              {typeof results[current.slug] === 'string' ? results[current.slug] : JSON.stringify(results[current.slug], null, 2)}
-            </pre>
-          )}
+          {error && (<div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>)}
+          {results[current.slug] && <StructuredAIResult result={results[current.slug]} />}
         </div>
       )}
     </div>

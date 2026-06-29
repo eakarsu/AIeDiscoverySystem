@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FileDown, Loader2 } from 'lucide-react';
+import { API_BASE } from '../api';
 
 export default function ProductionLogPdfExport() {
   const [caseId, setCaseId] = useState('');
@@ -12,7 +13,7 @@ export default function ProductionLogPdfExport() {
     try {
       const token = localStorage.getItem('token');
       const qs = caseId ? `?case_id=${encodeURIComponent(caseId)}` : '';
-      const res = await fetch(`http://localhost:3502/api/custom-views/production-log-pdf${qs}`, {
+      const res = await fetch(`${API_BASE}/custom-views/production-log-pdf${qs}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Brain, Sparkles, Loader2 } from 'lucide-react';
+import StructuredAIResult from './StructuredAIResult';
 
 function parseAIContent(text) {
   if (!text) return null;
@@ -155,19 +156,7 @@ export default function AIAnalysisPanel({ onRunAnalysis, analysisResult, loading
 
           {!loading && analysisResult && (
             <div className="animate-fade-in">
-              {typeof analysisResult === 'string' ? (
-                <div className="prose prose-invert max-w-none">
-                  {parseAIContent(analysisResult)}
-                </div>
-              ) : analysisResult.analysis ? (
-                <div className="prose prose-invert max-w-none">
-                  {parseAIContent(analysisResult.analysis)}
-                </div>
-              ) : (
-                <div className="prose prose-invert max-w-none">
-                  {parseAIContent(JSON.stringify(analysisResult, null, 2))}
-                </div>
-              )}
+              <StructuredAIResult result={analysisResult} title="AI Analysis Report" />
               <div className="mt-4 pt-3 border-t border-slate-700/50 flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 text-xs text-blue-300">
                   <Brain className="w-3 h-3" />

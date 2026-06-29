@@ -1,6 +1,9 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
+process.env.OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+process.env.OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022';
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -29,6 +32,70 @@ app.use(cors({
 // Body parser middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+const shouldNullEmptyString = (key) => {
+  const normalized = String(key || '').toLowerCase();
+
+  return (
+    normalized === 'id' ||
+    normalized.endsWith('_id') ||
+    normalized.endsWith('_date') ||
+    normalized.includes('date_') ||
+    normalized.endsWith('_at') ||
+    [
+      'started_at',
+      'completed_at',
+      'last_synced',
+      'first_occurrence',
+      'last_occurrence',
+      'date_filed',
+      'date_collected',
+      'date_range_start',
+      'date_range_end',
+      'delivery_date',
+      'interview_date',
+      'issued_date',
+      'release_date',
+      'last_checked',
+      'detected_date',
+      'collection_date',
+      'event_date',
+      'date_of_communication',
+    ].includes(normalized) ||
+    /(count|total|score|accuracy|precision|recall|frequency|size|gb|mb|confidence|documents|docs|items|errors|violations|cases|start|end|rate|usd|pages|synced|failed|ingested|detected|applied|retry|batch)$/.test(normalized) ||
+    normalized.startsWith('is_') ||
+    normalized.startsWith('has_') ||
+    /(sent|active|automated|stored|generated|overlay|complete|required|enforced|signoff)$/.test(normalized)
+  );
+};
+
+const sanitizeTypedEmptyStrings = (value, key = '') => {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeTypedEmptyStrings(item, key));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([childKey, childValue]) => [
+        childKey,
+        sanitizeTypedEmptyStrings(childValue, childKey),
+      ])
+    );
+  }
+
+  if (value === '' && shouldNullEmptyString(key)) {
+    return null;
+  }
+
+  return value;
+};
+
+app.use((req, res, next) => {
+  if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+    req.body = sanitizeTypedEmptyStrings(req.body);
+  }
+  next();
+});
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
@@ -102,6 +169,7 @@ app.use('/api/predictive-coding-feedback', require('./routes/predictiveCodingFee
 app.use('/api/cost-projection', require('./routes/costProjection'));
 app.use('/api/custodian-portal', require('./routes/custodianPortal'));
 app.use('/api/chain-of-custody', require('./routes/chainOfCustody'));
+app.use('/api', require('./routes/enterpriseModules'));
 
 // Custom Views (4 endpoints: VIZ + NON-VIZ) - MUST be mounted BEFORE 404 handler
 app.use('/api/custom-views', require('./routes/customViews'));

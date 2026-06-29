@@ -350,3 +350,141 @@ INSERT INTO data_sources (case_id, source_name, source_type, connection_status, 
 (5, 'Baxter Exchange Online - APAC', 'exchange', 'connected', 'Raymond Tan', 89012, 31.20, '2025-06-09 10:00:00', TRUE, 'high'),
 (5, 'Baxter SAP Financial System', 'salesforce', 'error', 'Angela Foster', 56789, 23.40, '2025-06-08 16:00:00', TRUE, 'high'),
 (5, 'Baxter Asia SharePoint', 'sharepoint', 'connected', 'David Nakamura', 23456, 15.60, '2025-06-10 09:00:00', TRUE, 'medium');
+
+-- ============================================================
+-- 19. ENTERPRISE COMPLETION MODULES (15 rows each)
+-- ============================================================
+INSERT INTO file_viewer_sessions (case_id, document_id, viewer_name, file_type, preview_status, ocr_status, extracted_pages, redaction_overlay, last_viewed_by, last_viewed_at, notes)
+SELECT ((n - 1) % 5) + 1, ((n - 1) % 15) + 1,
+       'Viewer Session ' || LPAD(n::text, 2, '0'),
+       (ARRAY['pdf','docx','xlsx','eml','pptx'])[((n - 1) % 5) + 1],
+       (ARRAY['ready','rendering','failed','queued'])[((n - 1) % 4) + 1],
+       (ARRAY['complete','pending','failed','not_required'])[((n - 1) % 4) + 1],
+       8 + n, n % 2 = 0, (ARRAY['Ava Review','Marcus QC','Priya Legal'])[((n - 1) % 3) + 1],
+       NOW() - (n || ' hours')::interval,
+       'Preview, OCR, and redaction overlay readiness record for reviewer workspace.'
+FROM generate_series(1, 15) AS g(n);
+
+INSERT INTO ingestion_pipelines (case_id, pipeline_name, source_system, stage, status, items_ingested, items_failed, dedupe_rate, ocr_complete, started_at, completed_at, owner, notes)
+SELECT ((n - 1) % 5) + 1, 'Ingestion Pipeline ' || LPAD(n::text, 2, '0'),
+       (ARRAY['Exchange Online','Slack Enterprise','SharePoint','Box','Google Workspace'])[((n - 1) % 5) + 1],
+       (ARRAY['collect','dedupe','ocr','index','qc'])[((n - 1) % 5) + 1],
+       (ARRAY['running','completed','queued','failed','review'])[((n - 1) % 5) + 1],
+       15000 + (n * 137), n % 4, ROUND((0.10 + (n * 0.007))::numeric, 4), n % 3 <> 0,
+       NOW() - (n || ' days')::interval,
+       CASE WHEN n % 3 = 0 THEN NULL ELSE NOW() - ((n - 1) || ' days')::interval END,
+       (ARRAY['Discovery Ops','Forensics Lead','Processing Manager'])[((n - 1) % 3) + 1],
+       'Pipeline monitors ingestion throughput, deduplication, OCR, and exception handling.'
+FROM generate_series(1, 15) AS g(n);
+
+INSERT INTO connector_syncs (case_id, connector_name, provider, sync_status, last_sync_at, next_sync_at, records_synced, records_failed, auth_status, owner, risk_level, notes)
+SELECT ((n - 1) % 5) + 1, 'Connector Sync ' || LPAD(n::text, 2, '0'),
+       (ARRAY['Microsoft 365','Google Vault','Slack','Salesforce','SAP'])[((n - 1) % 5) + 1],
+       (ARRAY['healthy','warning','failed','scheduled'])[((n - 1) % 4) + 1],
+       NOW() - (n || ' hours')::interval, NOW() + (n || ' hours')::interval,
+       9000 + (n * 311), n % 5,
+       (ARRAY['valid','expires_soon','reauthorize'])[((n - 1) % 3) + 1],
+       (ARRAY['Connector Admin','IT Legal Ops','Discovery Engineer'])[((n - 1) % 3) + 1],
+       (ARRAY['low','medium','high'])[((n - 1) % 3) + 1],
+       'Connector health, token status, failed record count, and next sync checkpoint.'
+FROM generate_series(1, 15) AS g(n);
+
+INSERT INTO review_assignments (case_id, review_set_id, assignment_name, reviewer, batch_size, completed_count, qc_required, due_date, priority, status, instructions)
+SELECT ((n - 1) % 5) + 1, ((n - 1) % 15) + 1,
+       'Review Assignment ' || LPAD(n::text, 2, '0'),
+       (ARRAY['Emily Zhang','Noah Patel','Sophia Reed','Liam Carter'])[((n - 1) % 4) + 1],
+       500 + (n * 25), 100 + (n * 18), n % 2 = 1,
+       CURRENT_DATE + (n || ' days')::interval,
+       (ARRAY['high','medium','low'])[((n - 1) % 3) + 1],
+       (ARRAY['active','queued','completed','paused'])[((n - 1) % 4) + 1],
+       'Review batch includes responsiveness, privilege, hot document, and issue coding instructions.'
+FROM generate_series(1, 15) AS g(n);
+
+INSERT INTO redaction_jobs (case_id, document_id, redaction_name, redaction_type, status, items_detected, items_applied, reviewer, confidence_score, completed_at, notes)
+SELECT ((n - 1) % 5) + 1, ((n - 1) % 15) + 1,
+       'Redaction Job ' || LPAD(n::text, 2, '0'),
+       (ARRAY['PII','PHI','privilege','trade_secret','financial'])[((n - 1) % 5) + 1],
+       (ARRAY['queued','in_review','completed','failed'])[((n - 1) % 4) + 1],
+       10 + n, 7 + n,
+       (ARRAY['Redaction QC','Privilege Team','Privacy Counsel'])[((n - 1) % 3) + 1],
+       ROUND((0.72 + (n * 0.012))::numeric, 4),
+       CASE WHEN n % 4 = 0 THEN NULL ELSE NOW() - (n || ' hours')::interval END,
+       'Redaction workflow tracks sensitive text detection, reviewer approval, and overlay application.'
+FROM generate_series(1, 15) AS g(n);
+
+INSERT INTO production_packages (case_id, production_id, package_name, package_type, status, document_count, bates_start, bates_end, load_file_status, qc_status, delivered_at, recipient, notes)
+SELECT ((n - 1) % 5) + 1, ((n - 1) % 15) + 1,
+       'Production Package ' || LPAD(n::text, 2, '0'),
+       (ARRAY['rolling','regulatory','privilege','expert','final'])[((n - 1) % 5) + 1],
+       (ARRAY['draft','qc','delivered','held'])[((n - 1) % 4) + 1],
+       250 + (n * 31), 100000 + (n * 1000), 100000 + (n * 1000) + 249 + (n * 31),
+       (ARRAY['ready','building','failed','validated'])[((n - 1) % 4) + 1],
+       (ARRAY['pending','passed','exceptions'])[((n - 1) % 3) + 1],
+       CASE WHEN n % 3 = 0 THEN NULL ELSE NOW() - (n || ' days')::interval END,
+       (ARRAY['Opposing Counsel','SEC Enforcement','FDA Counsel','Co-Defendant'])[((n - 1) % 4) + 1],
+       'Production package covers Bates range, load file validation, QC status, and delivery readiness.'
+FROM generate_series(1, 15) AS g(n);
+
+INSERT INTO notification_deliveries (case_id, notification_name, channel, recipient, template_name, delivery_status, sent_at, acknowledged_at, retry_count, priority, message_summary)
+SELECT ((n - 1) % 5) + 1, 'Notification Delivery ' || LPAD(n::text, 2, '0'),
+       (ARRAY['email','slack','sms','portal'])[((n - 1) % 4) + 1],
+       (ARRAY['custodian@example.com','legalops@example.com','reviewer@example.com','counsel@example.com'])[((n - 1) % 4) + 1],
+       (ARRAY['legal_hold_notice','review_due','production_qc','connector_failure'])[((n - 1) % 4) + 1],
+       (ARRAY['sent','acknowledged','failed','queued'])[((n - 1) % 4) + 1],
+       NOW() - (n || ' hours')::interval,
+       CASE WHEN n % 2 = 0 THEN NOW() - ((n - 1) || ' hours')::interval ELSE NULL END,
+       n % 3,
+       (ARRAY['critical','high','medium','low'])[((n - 1) % 4) + 1],
+       'Notification delivery and acknowledgement tracking for legal operations workflows.'
+FROM generate_series(1, 15) AS g(n);
+
+INSERT INTO rbac_permissions (permission_name, role_name, resource_area, access_level, enforced, last_reviewed_at, reviewer, risk_level, notes)
+SELECT 'Permission Rule ' || LPAD(n::text, 2, '0'),
+       (ARRAY['Admin','Attorney','Reviewer','Client','Forensics'])[((n - 1) % 5) + 1],
+       (ARRAY['cases','documents','productions','ai_tools','admin'])[((n - 1) % 5) + 1],
+       (ARRAY['read','write','approve','export','admin'])[((n - 1) % 5) + 1],
+       n % 2 = 0,
+       NOW() - (n || ' days')::interval,
+       (ARRAY['Security Lead','Legal Ops','Compliance Officer'])[((n - 1) % 3) + 1],
+       (ARRAY['low','medium','high'])[((n - 1) % 3) + 1],
+       'Role-based access control review record for matter, document, AI, and production permissions.'
+FROM generate_series(1, 15) AS g(n);
+
+INSERT INTO audit_binders (case_id, binder_name, binder_type, status, evidence_count, control_count, export_format, generated_by, generated_at, signoff_status, notes)
+SELECT ((n - 1) % 5) + 1, 'Audit Binder ' || LPAD(n::text, 2, '0'),
+       (ARRAY['preservation','collection','review','production','ai_governance'])[((n - 1) % 5) + 1],
+       (ARRAY['draft','ready','signed_off','exceptions'])[((n - 1) % 4) + 1],
+       20 + n, 5 + (n % 6),
+       (ARRAY['pdf','csv','json','zip'])[((n - 1) % 4) + 1],
+       (ARRAY['Audit Bot','Legal Ops','Compliance Manager'])[((n - 1) % 3) + 1],
+       NOW() - (n || ' days')::interval,
+       (ARRAY['pending','approved','needs_review'])[((n - 1) % 3) + 1],
+       'Audit binder packages defensibility evidence, control checks, exports, and reviewer signoff.'
+FROM generate_series(1, 15) AS g(n);
+
+INSERT INTO background_jobs (case_id, job_name, job_type, status, scheduled_at, started_at, finished_at, retry_count, last_error, owner, notes)
+SELECT ((n - 1) % 5) + 1, 'Background Job ' || LPAD(n::text, 2, '0'),
+       (ARRAY['sync','ocr','notification','export','ai_review'])[((n - 1) % 5) + 1],
+       (ARRAY['scheduled','running','completed','failed','retrying'])[((n - 1) % 5) + 1],
+       NOW() + (n || ' hours')::interval,
+       CASE WHEN n % 5 IN (2,3,4) THEN NOW() - (n || ' minutes')::interval ELSE NULL END,
+       CASE WHEN n % 5 = 3 THEN NOW() - ((n - 1) || ' minutes')::interval ELSE NULL END,
+       n % 4,
+       CASE WHEN n % 5 = 4 THEN 'Connector timeout after upstream throttle' ELSE NULL END,
+       (ARRAY['Scheduler','Processing Ops','AI Ops'])[((n - 1) % 3) + 1],
+       'Scheduled worker record for syncs, OCR, notifications, exports, retries, and AI runs.'
+FROM generate_series(1, 15) AS g(n);
+
+INSERT INTO ai_governance_records (case_id, governance_name, model_name, prompt_version, approval_status, approved_by, approved_at, cost_usd, fallback_model, reviewer_signoff, risk_level, notes)
+SELECT ((n - 1) % 5) + 1, 'AI Governance Record ' || LPAD(n::text, 2, '0'),
+       (ARRAY['anthropic/claude-3-5-sonnet','openai/gpt-4.1','google/gemini-pro','meta-llama/llama-3.1'])[((n - 1) % 4) + 1],
+       'prompt-v' || (1 + (n % 5)),
+       (ARRAY['approved','pending','rejected','needs_review'])[((n - 1) % 4) + 1],
+       (ARRAY['AI Review Board','Legal Ops Lead','Model Risk'])[((n - 1) % 3) + 1],
+       CASE WHEN n % 4 = 2 THEN NULL ELSE NOW() - (n || ' days')::interval END,
+       ROUND((12.50 + (n * 3.17))::numeric, 2),
+       (ARRAY['anthropic/claude-haiku','openai/gpt-4o-mini','local-rules-engine'])[((n - 1) % 3) + 1],
+       n % 2 = 0,
+       (ARRAY['low','medium','high'])[((n - 1) % 3) + 1],
+       'AI governance record tracks model, prompt approval, fallback, cost, risk, and reviewer signoff.'
+FROM generate_series(1, 15) AS g(n);

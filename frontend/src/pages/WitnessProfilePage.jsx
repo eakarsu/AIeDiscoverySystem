@@ -25,6 +25,21 @@ export default function WitnessProfilePage() {
     };
   }, []);
 
+  const findCustodian = (matcher) => custodians.find(matcher) || custodians[0];
+
+  const applyPreset = (label) => {
+    const textOf = (c) => `${c.full_name} ${c.title} ${c.department} ${c.company} ${c.data_sources}`;
+    const presets = {
+      engineering: findCustodian((c) => /engineering|architect|source|git|meridian/i.test(textOf(c))),
+      clinical: findCustodian((c) => /clinical|pinnacle|vp clinical|ctms|veeva/i.test(textOf(c))),
+      finance: findCustodian((c) => /finance|cfo|controller|sap|globalbank/i.test(textOf(c))),
+    };
+    const selected = presets[label];
+    if (!selected) return;
+    setCustodianId(String(selected.id));
+    setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!custodianId) {
@@ -71,6 +86,17 @@ export default function WitnessProfilePage() {
         onSubmit={handleSubmit}
         className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 space-y-4"
       >
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => applyPreset('engineering')} className="px-3 py-1.5 rounded-lg bg-blue-500/15 border border-blue-500/30 text-xs font-semibold text-blue-300 hover:bg-blue-500/25">
+            Engineering witness
+          </button>
+          <button type="button" onClick={() => applyPreset('clinical')} className="px-3 py-1.5 rounded-lg bg-purple-500/15 border border-purple-500/30 text-xs font-semibold text-purple-300 hover:bg-purple-500/25">
+            Clinical witness
+          </button>
+          <button type="button" onClick={() => applyPreset('finance')} className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25">
+            Finance witness
+          </button>
+        </div>
         <div>
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
             Custodian

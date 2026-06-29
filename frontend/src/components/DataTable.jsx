@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 
@@ -10,11 +10,26 @@ const statusLikeKeys = [
   'hold_status', 'significance', 'confidentiality_level', 'collection_priority',
   'verification_status', 'matter_type', 'hold_type', 'processing_type',
   'alert_type', 'privilege_type', 'category', 'regulation',
+  'preview_status', 'ocr_status', 'sync_status', 'auth_status', 'delivery_status',
+  'approval_status', 'signoff_status', 'qc_status', 'load_file_status', 'access_level',
+  'resource_area', 'role_name',
 ];
+
+function formatCellValue(value) {
+  if (value === null || value === undefined || value === '') return '-';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    return new Date(value).toLocaleDateString();
+  }
+  return String(value);
+}
 
 export default function DataTable({ columns, data, onRowClick, loading }) {
   const [page, setPage] = useState(0);
   const totalPages = Math.ceil((data?.length || 0) / ITEMS_PER_PAGE);
+  useEffect(() => {
+    setPage(0);
+  }, [data?.length]);
   const pageData = (data || []).slice(
     page * ITEMS_PER_PAGE,
     (page + 1) * ITEMS_PER_PAGE
@@ -66,7 +81,7 @@ export default function DataTable({ columns, data, onRowClick, loading }) {
                       <StatusBadge status={row[col.key]} />
                     ) : (
                       <span className="truncate block max-w-xs">
-                        {row[col.key] != null ? String(row[col.key]) : '-'}
+                        {formatCellValue(row[col.key])}
                       </span>
                     )}
                   </td>

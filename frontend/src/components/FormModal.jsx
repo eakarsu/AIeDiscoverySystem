@@ -5,10 +5,28 @@ export default function FormModal({ title, fields, initialData, onSave, onClose 
   const [formData, setFormData] = useState({});
   const [errors, setErrors] = useState({});
 
+  const normalizeInitialValue = (field, value) => {
+    if (value === null || value === undefined) return '';
+    if (field.type === 'date' && typeof value === 'string' && value.includes('T')) {
+      return value.slice(0, 10);
+    }
+    return value;
+  };
+
+  const cleanValue = (field, value) => {
+    if (
+      value === '' &&
+      ['date', 'number', 'select'].includes(field.type)
+    ) {
+      return null;
+    }
+    return value;
+  };
+
   useEffect(() => {
     const init = {};
     fields.forEach((f) => {
-      init[f.key] = initialData?.[f.key] ?? '';
+      init[f.key] = normalizeInitialValue(f, initialData?.[f.key]);
     });
     setFormData(init);
   }, [fields, initialData]);
@@ -32,7 +50,17 @@ export default function FormModal({ title, fields, initialData, onSave, onClose 
       setErrors(newErrors);
       return;
     }
-    onSave(formData);
+    const isEditing = Boolean(initialData);
+    const cleaned = {};
+    fields.forEach((field) => {
+      const nextValue = cleanValue(field, formData[field.key]);
+      const initialValue = cleanValue(field, normalizeInitialValue(field, initialData?.[field.key]));
+
+      if (!isEditing || nextValue !== initialValue) {
+        cleaned[field.key] = nextValue;
+      }
+    });
+    onSave(cleaned);
   };
 
   return (
@@ -42,6 +70,7 @@ export default function FormModal({ title, fields, initialData, onSave, onClose 
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <h2 className="text-lg font-semibold text-white">{title}</h2>
           <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
           >

@@ -28,27 +28,27 @@ export default function CodexOperationsFeature() {
   }
 
   return (
-    <section style={{ padding: 24, color: '#172033' }}>
-      <p style={{ margin: 0, color: '#64748b', fontSize: 13, fontWeight: 700, textTransform: 'uppercase' }}>Non-visual workflow</p>
-      <h1 style={{ margin: '6px 0 18px', fontSize: 30 }}> AI e Discovery System Operations Desk</h1>
+    <section className="text-slate-100">
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Non-visual workflow</p>
+      <h1 className="mb-5 mt-1 text-2xl font-semibold text-white">AI eDiscovery System Operations Desk</h1>
 
-      <form onSubmit={addTask} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) auto', gap: 10, marginBottom: 16 }}>
-        <input value={task} onChange={(event) => setTask(event.target.value)} placeholder="Add an operational follow-up" style={{ padding: '12px 14px', border: '1px solid #cbd5e1', borderRadius: 8 }} />
-        <button type="submit" style={{ padding: '12px 16px', border: 0, borderRadius: 8, background: '#172033', color: '#ffffff', fontWeight: 700 }}>Add task</button>
+      <form onSubmit={addTask} className="mb-4 grid grid-cols-[minmax(220px,1fr)_auto] gap-2">
+        <input value={task} onChange={(event) => setTask(event.target.value)} placeholder="Add an operational follow-up" className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-blue-500 focus:outline-none" />
+        <button type="submit" className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600">Add task</button>
       </form>
 
-      <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search owner, priority, status, or task" style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', border: '1px solid #cbd5e1', borderRadius: 8, marginBottom: 16 }} />
+      <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search owner, priority, status, or task" className="mb-4 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-blue-500 focus:outline-none" />
 
-      <div style={{ border: '1px solid #d7dde8', borderRadius: 8, overflow: 'hidden', background: '#ffffff' }}>
+      <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-800/50">
         {filtered.map((item) => (
-          <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 120px 120px', gap: 12, padding: 14, borderBottom: '1px solid #e2e8f0', alignItems: 'center' }}>
-            <strong>{item.task}</strong>
-            <span>{item.owner}</span>
-            <span>{item.priority}</span>
-            <span>{item.status}</span>
+          <div key={item.id} className="grid grid-cols-[1fr_120px_120px_120px] items-center gap-3 border-b border-slate-700 px-4 py-3 text-sm last:border-b-0">
+            <strong className="text-white">{item.task}</strong>
+            <span className="text-slate-300">{item.owner}</span>
+            <span className="text-slate-300">{item.priority}</span>
+            <span className="text-slate-300">{item.status}</span>
           </div>
         ))}
-        {filtered.length === 0 && <div style={{ padding: 18, color: '#64748b' }}>No matching workflow items.</div>}
+        {filtered.length === 0 && <div className="p-5 text-sm text-slate-500">No matching workflow items.</div>}
       </div>
     </section>
   );

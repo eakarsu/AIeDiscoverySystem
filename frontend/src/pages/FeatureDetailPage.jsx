@@ -33,6 +33,11 @@ export default function FeatureDetailPage({ feature }) {
   }, [fetchData]);
 
   const handleEdit = async (formData) => {
+    if (Object.keys(formData).length === 0) {
+      setToast({ message: 'No changes to save.', type: 'info' });
+      setShowEditModal(false);
+      return;
+    }
     try {
       await api.put(`${feature.apiEndpoint}/${id}`, formData);
       setToast({ message: 'Record updated successfully.', type: 'success' });

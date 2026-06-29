@@ -85,6 +85,16 @@ const iconColorClasses = {
   slate: 'text-slate-400',
 };
 
+function rowsFromResponse(result) {
+  if (Array.isArray(result)) return result;
+  if (Array.isArray(result?.data)) return result.data;
+  if (Array.isArray(result?.rows)) return result.rows;
+  if (Array.isArray(result?.items)) return result.items;
+  if (Array.isArray(result?.cases)) return result.cases;
+  if (Array.isArray(result?.documents)) return result.documents;
+  return [];
+}
+
 export default function Dashboard() {
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
@@ -97,7 +107,7 @@ export default function Dashboard() {
         features.map(async (f) => {
           try {
             const data = await api.get(f.apiEndpoint);
-            results[f.key] = Array.isArray(data) ? data.length : (data?.length ?? 0);
+            results[f.key] = rowsFromResponse(data).length;
           } catch {
             results[f.key] = 0;
           }

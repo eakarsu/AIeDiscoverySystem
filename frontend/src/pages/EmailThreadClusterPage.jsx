@@ -25,6 +25,21 @@ export default function EmailThreadClusterPage() {
     };
   }, []);
 
+  const findCase = (matcher) => cases.find(matcher) || cases[0];
+
+  const applyPreset = (label) => {
+    const textOf = (c) => `${c.case_name} ${c.client_name} ${c.description} ${c.matter_type}`;
+    const presets = {
+      tradeSecret: findCase((c) => /meridian|apex|trade secret|algorithm/i.test(textOf(c))),
+      breach: findCase((c) => /techvault|breach|customer data|privacy/i.test(textOf(c))),
+      fcpa: findCase((c) => /baxter|fcpa|southeast asia|foreign corrupt/i.test(textOf(c))),
+    };
+    const selected = presets[label];
+    if (!selected) return;
+    setCaseId(String(selected.id));
+    setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!caseId) {
@@ -86,6 +101,17 @@ export default function EmailThreadClusterPage() {
         onSubmit={handleSubmit}
         className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 space-y-4"
       >
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => applyPreset('tradeSecret')} className="px-3 py-1.5 rounded-lg bg-blue-500/15 border border-blue-500/30 text-xs font-semibold text-blue-300 hover:bg-blue-500/25">
+            Trade secret case
+          </button>
+          <button type="button" onClick={() => applyPreset('breach')} className="px-3 py-1.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/25">
+            Data breach case
+          </button>
+          <button type="button" onClick={() => applyPreset('fcpa')} className="px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300 hover:bg-amber-500/25">
+            FCPA investigation
+          </button>
+        </div>
         <div>
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
             Case

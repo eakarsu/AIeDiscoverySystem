@@ -26,6 +26,45 @@ export default function RelevanceScorePage() {
     };
   }, []);
 
+  const findDocument = (matcher) => documents.find(matcher) || documents[0];
+
+  const applyPreset = (label) => {
+    const presets = {
+      tradeSecret: {
+        document: findDocument((d) => /algorithm|source code|non-compete|apex/i.test(`${d.title} ${d.content_preview} ${d.bates_number}`)),
+        themes: [
+          'Trade secret misappropriation',
+          'Departing employee access to proprietary algorithms',
+          'Source code transfer or repository access',
+          'Non-compete and confidentiality obligations',
+        ],
+      },
+      regulatory: {
+        document: findDocument((d) => /clinical|manufacturing|batch|fda|protocol/i.test(`${d.title} ${d.content_preview} ${d.bates_number}`)),
+        themes: [
+          'FDA clinical trial data integrity',
+          'Protocol deviations and adverse event reporting',
+          'Manufacturing quality records',
+          'Regulatory correspondence and audit readiness',
+        ],
+      },
+      fraud: {
+        document: findDocument((d) => /revenue|audit|board|earnings|financial/i.test(`${d.title} ${d.content_preview} ${d.bates_number}`)),
+        themes: [
+          'Revenue recognition irregularities',
+          'Executive knowledge before restatement',
+          'Internal control weaknesses',
+          'External auditor communications',
+        ],
+      },
+    };
+    const preset = presets[label];
+    if (!preset?.document) return;
+    setDocumentId(String(preset.document.id));
+    setThemesText(preset.themes.join('\n'));
+    setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!documentId) {
@@ -91,6 +130,17 @@ export default function RelevanceScorePage() {
         onSubmit={handleSubmit}
         className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 space-y-4"
       >
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => applyPreset('tradeSecret')} className="px-3 py-1.5 rounded-lg bg-blue-500/15 border border-blue-500/30 text-xs font-semibold text-blue-300 hover:bg-blue-500/25">
+            Trade secret review
+          </button>
+          <button type="button" onClick={() => applyPreset('regulatory')} className="px-3 py-1.5 rounded-lg bg-purple-500/15 border border-purple-500/30 text-xs font-semibold text-purple-300 hover:bg-purple-500/25">
+            FDA regulatory review
+          </button>
+          <button type="button" onClick={() => applyPreset('fraud')} className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25">
+            Fraud controls review
+          </button>
+        </div>
         <div>
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
             Document

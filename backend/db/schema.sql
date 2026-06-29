@@ -353,6 +353,200 @@ CREATE TABLE data_sources (
 );
 
 -- ============================================================
+-- 19. ENTERPRISE COMPLETION MODULES
+-- ============================================================
+CREATE TABLE IF NOT EXISTS file_viewer_sessions (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    document_id INTEGER REFERENCES documents(id) ON DELETE SET NULL,
+    viewer_name VARCHAR(255) NOT NULL,
+    file_type VARCHAR(50),
+    preview_status VARCHAR(50),
+    ocr_status VARCHAR(50),
+    extracted_pages INTEGER DEFAULT 0,
+    redaction_overlay BOOLEAN DEFAULT FALSE,
+    last_viewed_by VARCHAR(255),
+    last_viewed_at TIMESTAMP,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ingestion_pipelines (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    pipeline_name VARCHAR(255) NOT NULL,
+    source_system VARCHAR(255),
+    stage VARCHAR(100),
+    status VARCHAR(50),
+    items_ingested INTEGER DEFAULT 0,
+    items_failed INTEGER DEFAULT 0,
+    dedupe_rate DECIMAL(5,4),
+    ocr_complete BOOLEAN DEFAULT FALSE,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    owner VARCHAR(255),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS connector_syncs (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    connector_name VARCHAR(255) NOT NULL,
+    provider VARCHAR(100),
+    sync_status VARCHAR(50),
+    last_sync_at TIMESTAMP,
+    next_sync_at TIMESTAMP,
+    records_synced INTEGER DEFAULT 0,
+    records_failed INTEGER DEFAULT 0,
+    auth_status VARCHAR(50),
+    owner VARCHAR(255),
+    risk_level VARCHAR(50),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS review_assignments (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    review_set_id INTEGER REFERENCES review_sets(id) ON DELETE SET NULL,
+    assignment_name VARCHAR(255) NOT NULL,
+    reviewer VARCHAR(255),
+    batch_size INTEGER DEFAULT 0,
+    completed_count INTEGER DEFAULT 0,
+    qc_required BOOLEAN DEFAULT FALSE,
+    due_date DATE,
+    priority VARCHAR(50),
+    status VARCHAR(50),
+    instructions TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS redaction_jobs (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    document_id INTEGER REFERENCES documents(id) ON DELETE SET NULL,
+    redaction_name VARCHAR(255) NOT NULL,
+    redaction_type VARCHAR(100),
+    status VARCHAR(50),
+    items_detected INTEGER DEFAULT 0,
+    items_applied INTEGER DEFAULT 0,
+    reviewer VARCHAR(255),
+    confidence_score DECIMAL(5,4),
+    completed_at TIMESTAMP,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS production_packages (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    production_id INTEGER REFERENCES productions(id) ON DELETE SET NULL,
+    package_name VARCHAR(255) NOT NULL,
+    package_type VARCHAR(100),
+    status VARCHAR(50),
+    document_count INTEGER DEFAULT 0,
+    bates_start INTEGER,
+    bates_end INTEGER,
+    load_file_status VARCHAR(50),
+    qc_status VARCHAR(50),
+    delivered_at TIMESTAMP,
+    recipient VARCHAR(255),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    notification_name VARCHAR(255) NOT NULL,
+    channel VARCHAR(50),
+    recipient VARCHAR(255),
+    template_name VARCHAR(255),
+    delivery_status VARCHAR(50),
+    sent_at TIMESTAMP,
+    acknowledged_at TIMESTAMP,
+    retry_count INTEGER DEFAULT 0,
+    priority VARCHAR(50),
+    message_summary TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS rbac_permissions (
+    id SERIAL PRIMARY KEY,
+    permission_name VARCHAR(255) NOT NULL,
+    role_name VARCHAR(100),
+    resource_area VARCHAR(100),
+    access_level VARCHAR(100),
+    enforced BOOLEAN DEFAULT FALSE,
+    last_reviewed_at TIMESTAMP,
+    reviewer VARCHAR(255),
+    risk_level VARCHAR(50),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS audit_binders (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    binder_name VARCHAR(255) NOT NULL,
+    binder_type VARCHAR(100),
+    status VARCHAR(50),
+    evidence_count INTEGER DEFAULT 0,
+    control_count INTEGER DEFAULT 0,
+    export_format VARCHAR(50),
+    generated_by VARCHAR(255),
+    generated_at TIMESTAMP,
+    signoff_status VARCHAR(50),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS background_jobs (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    job_name VARCHAR(255) NOT NULL,
+    job_type VARCHAR(100),
+    status VARCHAR(50),
+    scheduled_at TIMESTAMP,
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP,
+    retry_count INTEGER DEFAULT 0,
+    last_error TEXT,
+    owner VARCHAR(255),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_governance_records (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    governance_name VARCHAR(255) NOT NULL,
+    model_name VARCHAR(255),
+    prompt_version VARCHAR(100),
+    approval_status VARCHAR(50),
+    approved_by VARCHAR(255),
+    approved_at TIMESTAMP,
+    cost_usd DECIMAL(10,2),
+    fallback_model VARCHAR(255),
+    reviewer_signoff BOOLEAN DEFAULT FALSE,
+    risk_level VARCHAR(50),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
 -- INDEXES for performance
 -- ============================================================
 CREATE INDEX idx_documents_case_id ON documents(case_id);
@@ -376,6 +570,16 @@ CREATE INDEX idx_key_terms_case_id ON key_terms(case_id);
 CREATE INDEX idx_anomaly_alerts_case_id ON anomaly_alerts(case_id);
 CREATE INDEX idx_anomaly_alerts_severity ON anomaly_alerts(severity);
 CREATE INDEX idx_data_sources_case_id ON data_sources(case_id);
+CREATE INDEX IF NOT EXISTS idx_file_viewer_sessions_case_id ON file_viewer_sessions(case_id);
+CREATE INDEX IF NOT EXISTS idx_ingestion_pipelines_case_id ON ingestion_pipelines(case_id);
+CREATE INDEX IF NOT EXISTS idx_connector_syncs_case_id ON connector_syncs(case_id);
+CREATE INDEX IF NOT EXISTS idx_review_assignments_case_id ON review_assignments(case_id);
+CREATE INDEX IF NOT EXISTS idx_redaction_jobs_case_id ON redaction_jobs(case_id);
+CREATE INDEX IF NOT EXISTS idx_production_packages_case_id ON production_packages(case_id);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_case_id ON notification_deliveries(case_id);
+CREATE INDEX IF NOT EXISTS idx_audit_binders_case_id ON audit_binders(case_id);
+CREATE INDEX IF NOT EXISTS idx_background_jobs_case_id ON background_jobs(case_id);
+CREATE INDEX IF NOT EXISTS idx_ai_governance_records_case_id ON ai_governance_records(case_id);
 CREATE INDEX idx_users_email ON users(email);
 
 -- ============================================================
@@ -529,3 +733,14 @@ CREATE TRIGGER update_key_terms_updated_at BEFORE UPDATE ON key_terms FOR EACH R
 CREATE TRIGGER update_anomaly_alerts_updated_at BEFORE UPDATE ON anomaly_alerts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_compliance_rules_updated_at BEFORE UPDATE ON compliance_rules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_data_sources_updated_at BEFORE UPDATE ON data_sources FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_file_viewer_sessions_updated_at BEFORE UPDATE ON file_viewer_sessions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_ingestion_pipelines_updated_at BEFORE UPDATE ON ingestion_pipelines FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_connector_syncs_updated_at BEFORE UPDATE ON connector_syncs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_review_assignments_updated_at BEFORE UPDATE ON review_assignments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_redaction_jobs_updated_at BEFORE UPDATE ON redaction_jobs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_production_packages_updated_at BEFORE UPDATE ON production_packages FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_notification_deliveries_updated_at BEFORE UPDATE ON notification_deliveries FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_rbac_permissions_updated_at BEFORE UPDATE ON rbac_permissions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_audit_binders_updated_at BEFORE UPDATE ON audit_binders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_background_jobs_updated_at BEFORE UPDATE ON background_jobs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_ai_governance_records_updated_at BEFORE UPDATE ON ai_governance_records FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
