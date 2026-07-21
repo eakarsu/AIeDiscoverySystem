@@ -1,234 +1,62 @@
-const path = require('path');
+const path = require('node:path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-
-process.env.OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
-process.env.OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022';
+const { validateRuntime } = require('./governance/runtime');
+validateRuntime();
 
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const pool = require('./db/pool');
+const auth = require('./middleware/auth');
+const { createProviderGate } = require('./governance/providerGate');
 
 const app = express();
+const port = Number(process.env.BACKEND_PORT || 3001);
+const origins = String(process.env.CORS_ORIGINS || 'http://localhost:5101')
+  .split(',').map((value) => value.trim()).filter(Boolean);
 
-// Security headers
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-}));
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' }, contentSecurityPolicy: false }));
+app.use(cors({ origin(origin, callback) {
+  if (!origin || origins.includes(origin)) return callback(null, true);
+  return callback(new Error('Origin is not allowed by CORS.'));
+}, credentials: true }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
-// CORS configuration (configurable via env: CORS_ORIGINS=https://a.com,https://b.com)
-const corsOriginsEnv = (process.env.CORS_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
-app.use(cors({
-  origin: corsOriginsEnv.includes('*') ? true : corsOriginsEnv,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'AIeDiscoverySystem', timestamp: new Date().toISOString() }));
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/governance', require('./governance/router'));
 
-// Body parser middleware
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use('/api', auth);
+const providerPrefixes = ['/api/cases','/api/documents','/api/legal-holds','/api/custodians','/api/collections','/api/processing-jobs','/api/review-sets','/api/productions','/api/search-queries','/api/predictive-coding','/api/privilege-logs','/api/timeline-events','/api/email-threads','/api/key-terms','/api/anomaly-alerts','/api/compliance-rules','/api/data-sources','/api/ai','/api/document-upload','/api/tar','/api/agentic-discovery','/api/custom-views','/api/privilege-clawback-risk'];
+app.use(createProviderGate(providerPrefixes));
+if (process.env.ENABLE_LEGACY_PROVIDER_ROUTES === 'true' && process.env.NODE_ENV !== 'production') {
+  const routes = [
+    ['/api/cases','./routes/cases'],['/api/documents','./routes/documents'],
+    ['/api/legal-holds','./routes/legalHolds'],['/api/custodians','./routes/custodians'],
+    ['/api/collections','./routes/collections'],['/api/processing-jobs','./routes/processing'],
+    ['/api/review-sets','./routes/reviewSets'],['/api/productions','./routes/productions'],
+    ['/api/search-queries','./routes/searchQueries'],['/api/predictive-coding','./routes/predictiveCoding'],
+    ['/api/privilege-logs','./routes/privilegeLogs'],['/api/timeline-events','./routes/timelineEvents'],
+    ['/api/email-threads','./routes/emailThreads'],['/api/key-terms','./routes/keyTerms'],
+    ['/api/anomaly-alerts','./routes/anomalyAlerts'],['/api/compliance-rules','./routes/complianceRules'],
+    ['/api/data-sources','./routes/dataSources'],['/api/ai','./routes/ai'],
+    ['/api/ai-extra','./routes/aiExtra'],['/api/document-upload','./routes/documentUpload'],
+    ['/api/tar','./routes/tar'],['/api/privilege-log-export','./routes/privilegeLogExport'],
+    ['/api/email-thread-analysis','./routes/emailThreadAnalysis'],['/api/agentic-discovery','./routes/agenticDiscovery'],
+    ['/api/deposition-video','./routes/depositionVideoSync'],['/api/court-format-export','./routes/courtFormatExport'],
+    ['/api/predictive-coding-feedback','./routes/predictiveCodingFeedback'],['/api/cost-projection','./routes/costProjection'],
+    ['/api/custodian-portal','./routes/custodianPortal'],['/api/chain-of-custody','./routes/chainOfCustody'],
+    ['/api/custom-views','./routes/customViews'],['/api/privilege-clawback-risk','./routes/privilegeClawbackRisk'],
+    ['/api','./routes/enterpriseModules'],['/api','./routes/batch03Gaps']
+  ];
+  for (const [mount, modulePath] of routes) app.use(mount, require(modulePath));
+}
 
-const shouldNullEmptyString = (key) => {
-  const normalized = String(key || '').toLowerCase();
+app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
+app.use((error, _req, res, _next) => res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal server error' }));
 
-  return (
-    normalized === 'id' ||
-    normalized.endsWith('_id') ||
-    normalized.endsWith('_date') ||
-    normalized.includes('date_') ||
-    normalized.endsWith('_at') ||
-    [
-      'started_at',
-      'completed_at',
-      'last_synced',
-      'first_occurrence',
-      'last_occurrence',
-      'date_filed',
-      'date_collected',
-      'date_range_start',
-      'date_range_end',
-      'delivery_date',
-      'interview_date',
-      'issued_date',
-      'release_date',
-      'last_checked',
-      'detected_date',
-      'collection_date',
-      'event_date',
-      'date_of_communication',
-    ].includes(normalized) ||
-    /(count|total|score|accuracy|precision|recall|frequency|size|gb|mb|confidence|documents|docs|items|errors|violations|cases|start|end|rate|usd|pages|synced|failed|ingested|detected|applied|retry|batch)$/.test(normalized) ||
-    normalized.startsWith('is_') ||
-    normalized.startsWith('has_') ||
-    /(sent|active|automated|stored|generated|overlay|complete|required|enforced|signoff)$/.test(normalized)
-  );
-};
-
-const sanitizeTypedEmptyStrings = (value, key = '') => {
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeTypedEmptyStrings(item, key));
-  }
-
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([childKey, childValue]) => [
-        childKey,
-        sanitizeTypedEmptyStrings(childValue, childKey),
-      ])
-    );
-  }
-
-  if (value === '' && shouldNullEmptyString(key)) {
-    return null;
-  }
-
-  return value;
-};
-
-app.use((req, res, next) => {
-  if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
-    req.body = sanitizeTypedEmptyStrings(req.body);
-  }
-  next();
-});
-
-// Health check endpoint
-app.get('/api/health', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT NOW()');
-    res.json({
-      status: 'ok',
-      timestamp: result.rows[0].now,
-      uptime: process.uptime(),
-    });
-  } catch (err) {
-    res.status(500).json({ status: 'error', message: 'Database connection failed' });
-  }
-});
-
-// Import route files
-const authRoutes = require('./routes/auth');
-const casesRoutes = require('./routes/cases');
-const documentsRoutes = require('./routes/documents');
-const legalHoldsRoutes = require('./routes/legalHolds');
-const custodiansRoutes = require('./routes/custodians');
-const collectionsRoutes = require('./routes/collections');
-const processingRoutes = require('./routes/processing');
-const reviewSetsRoutes = require('./routes/reviewSets');
-const productionsRoutes = require('./routes/productions');
-const searchQueriesRoutes = require('./routes/searchQueries');
-const predictiveCodingRoutes = require('./routes/predictiveCoding');
-const privilegeLogsRoutes = require('./routes/privilegeLogs');
-const timelineEventsRoutes = require('./routes/timelineEvents');
-const emailThreadsRoutes = require('./routes/emailThreads');
-const keyTermsRoutes = require('./routes/keyTerms');
-const anomalyAlertsRoutes = require('./routes/anomalyAlerts');
-const complianceRulesRoutes = require('./routes/complianceRules');
-const dataSourcesRoutes = require('./routes/dataSources');
-const aiRoutes = require('./routes/ai');
-const aiExtraRoutes = require('./routes/aiExtra');
-const documentUploadRoutes = require('./routes/documentUpload');
-const tarRoutes = require('./routes/tar');
-const privilegeLogExportRoutes = require('./routes/privilegeLogExport');
-const emailThreadAnalysisRoutes = require('./routes/emailThreadAnalysis');
-
-// Mount route files
-app.use('/api/auth', authRoutes);
-app.use('/api/cases', casesRoutes);
-app.use('/api/documents', documentsRoutes);
-app.use('/api/legal-holds', legalHoldsRoutes);
-app.use('/api/custodians', custodiansRoutes);
-app.use('/api/collections', collectionsRoutes);
-app.use('/api/processing-jobs', processingRoutes);
-app.use('/api/review-sets', reviewSetsRoutes);
-app.use('/api/productions', productionsRoutes);
-app.use('/api/search-queries', searchQueriesRoutes);
-app.use('/api/predictive-coding', predictiveCodingRoutes);
-app.use('/api/privilege-logs', privilegeLogsRoutes);
-app.use('/api/timeline-events', timelineEventsRoutes);
-app.use('/api/email-threads', emailThreadsRoutes);
-app.use('/api/key-terms', keyTermsRoutes);
-app.use('/api/anomaly-alerts', anomalyAlertsRoutes);
-app.use('/api/compliance-rules', complianceRulesRoutes);
-app.use('/api/data-sources', dataSourcesRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/ai-extra', aiExtraRoutes);
-app.use('/api/document-upload', documentUploadRoutes);
-app.use('/api/tar', tarRoutes);
-app.use('/api/privilege-log-export', privilegeLogExportRoutes);
-app.use('/api/email-thread-analysis', emailThreadAnalysisRoutes);
-app.use('/api/agentic-discovery', require('./routes/agenticDiscovery'));
-app.use('/api/deposition-video', require('./routes/depositionVideoSync'));
-app.use('/api/court-format-export', require('./routes/courtFormatExport'));
-app.use('/api/predictive-coding-feedback', require('./routes/predictiveCodingFeedback'));
-app.use('/api/cost-projection', require('./routes/costProjection'));
-app.use('/api/custodian-portal', require('./routes/custodianPortal'));
-app.use('/api/chain-of-custody', require('./routes/chainOfCustody'));
-app.use('/api', require('./routes/enterpriseModules'));
-
-// Custom Views (4 endpoints: VIZ + NON-VIZ) - MUST be mounted BEFORE 404 handler
-app.use('/api/custom-views', require('./routes/customViews'));
-app.use('/api/privilege-clawback-risk', require('./routes/privilegeClawbackRisk'));
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
-
-// Global error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-
-  if (err.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'Request body too large' });
-  }
-
-  if (err.name === 'SyntaxError' && err.status === 400 && 'body' in err) {
-    return res.status(400).json({ error: 'Invalid JSON in request body' });
-  }
-
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production'
-      ? 'Internal server error'
-      : err.message || 'Internal server error',
-  });
-});
-
-// Start server
-const PORT = process.env.BACKEND_PORT || 3001;
-
-const startServer = async () => {
-  try {
-    // Test database connection
-    const result = await pool.query('SELECT NOW()');
-    console.log('Database connected successfully at:', result.rows[0].now);
-
-    
-// === Batch 03 Gaps & Frontend Mounts ===
-try {
-  const _batch03 = require('./routes/batch03Gaps');
-  if (typeof authenticateToken === 'function') app.use('/api', authenticateToken, _batch03);
-  else app.use('/api', _batch03);
-} catch (_e) { /* batch03 gap routes optional */ }
-
-app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Health check: http://localhost:${PORT}/api/health`);
-    });
-  } catch (err) {
-    console.error('Failed to connect to database:', err.message);
-    console.log(`Starting server on port ${PORT} without database verification...`);
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT} (database connection pending)`);
-    });
-  }
-};
-
-startServer();
-
-module.exports = app;
+function start() {
+  return app.listen(port, () => console.log(`eDiscovery API listening on ${port}`));
+}
+if (require.main === module) start();
+module.exports = { app, start };

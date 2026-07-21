@@ -63,10 +63,13 @@ router.post('/login', async (req, res) => {
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, full_name, role, firm_name } = req.body;
+    const { email, password, full_name, firm_name } = req.body;
 
     if (!email || !password || !full_name) {
       return res.status(400).json({ error: 'Email, password, and full_name are required' });
+    }
+    if (String(password).length < 12) {
+      return res.status(400).json({ error: 'Password must be at least 12 characters' });
     }
 
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
@@ -81,7 +84,7 @@ router.post('/register', async (req, res) => {
       `INSERT INTO users (email, password_hash, full_name, role, firm_name, is_active, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
        RETURNING id, email, full_name, role, firm_name, is_active, created_at`,
-      [email, password_hash, full_name, role || 'reviewer', firm_name || null]
+      [email, password_hash, full_name, 'reviewer', firm_name || null]
     );
 
     const user = result.rows[0];
@@ -124,7 +127,7 @@ router.post('/forgot-password', async (req, res) => {
       'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE id = $3',
       [token, expiry, userRes.rows[0].id]
     );
-    res.json({ message: 'If an account exists, a reset token was generated.', reset_token: token, expires_at: expiry });
+    res.json({ message: 'If an account exists, reset instructions will be delivered through the configured channel.' });
   } catch (err) {
     console.error('Forgot password error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -136,7 +139,7 @@ router.post('/reset-password', async (req, res) => {
   try {
     const { token, new_password } = req.body;
     if (!token || !new_password) return res.status(400).json({ error: 'token and new_password required' });
-    if (String(new_password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    if (String(new_password).length < 12) return res.status(400).json({ error: 'Password must be at least 12 characters' });
     const userRes = await pool.query(
       'SELECT id FROM users WHERE reset_token = $1 AND reset_token_expiry > NOW()',
       [token]
@@ -159,7 +162,7 @@ router.post('/change-password', auth, async (req, res) => {
   try {
     const { current_password, new_password } = req.body;
     if (!current_password || !new_password) return res.status(400).json({ error: 'current_password and new_password required' });
-    if (String(new_password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    if (String(new_password).length < 12) return res.status(400).json({ error: 'Password must be at least 12 characters' });
     const userRes = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
     if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
     const ok = await bcrypt.compare(current_password, userRes.rows[0].password_hash);

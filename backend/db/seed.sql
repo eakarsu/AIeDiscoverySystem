@@ -2,6 +2,12 @@
 -- AI eDiscovery System - Seed Data
 -- ============================================================
 
+\if :{?allow_demo_seed}
+\else
+\echo 'Demo seed disabled; pass -v allow_demo_seed=1 only for an isolated non-production database.'
+\quit
+\endif
+
 -- ============================================================
 -- 1. USERS (3 rows)
 -- ============================================================
