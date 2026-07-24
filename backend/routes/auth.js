@@ -105,7 +105,12 @@ router.post('/register', async (req, res) => {
 // GET /api/auth/me
 router.get('/me', auth, async (req, res) => {
   try {
-    res.json({ user: req.user });
+    const result = await pool.query(
+      'SELECT id, email, full_name, role, firm_name, is_active, created_at FROM users WHERE id = $1 AND is_active = true',
+      [req.user.id]
+    );
+    if (!result.rows.length) return res.status(401).json({ error: 'Session user no longer exists' });
+    res.json({ user: result.rows[0] });
   } catch (err) {
     console.error('Get current user error:', err);
     res.status(500).json({ error: 'Internal server error' });

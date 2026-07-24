@@ -69,7 +69,11 @@ Document details:
         review_status = $1,
         updated_at = NOW()
        WHERE id = $2`,
-      [classification.is_privileged ? 'privileged' : 'reviewed', document_id]
+      [classification.is_privileged ? 'privileged' : (classification.is_relevant ? 'relevant' : 'not_relevant'), document_id]
+    );
+    await pool.query(
+      'INSERT INTO ai_results (feature, user_id, input, output, model) VALUES ($1, $2, $3, $4, $5)',
+      ['classify-document', req.user.id, { document_id }, classification, process.env.OPENROUTER_MODEL]
     );
 
     res.json({ document_id, document_title: doc.title, classification });

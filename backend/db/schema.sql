@@ -27,6 +27,17 @@ CREATE TABLE users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP;
 
+CREATE TABLE ai_results (
+    id BIGSERIAL PRIMARY KEY,
+    feature VARCHAR(100) NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    input JSONB NOT NULL,
+    output JSONB NOT NULL,
+    model VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_ai_results_feature_created ON ai_results(feature, created_at DESC);
+
 -- ============================================================
 -- 2. CASES
 -- ============================================================
