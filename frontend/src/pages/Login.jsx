@@ -27,8 +27,8 @@ export default function Login() {
   };
 
   const fillDemo = () => {
-    setEmail('admin@ediscovery.com');
-    setPassword('admin123');
+    setEmail(import.meta.env.VITE_DEMO_EMAIL || '');
+    setPassword(import.meta.env.VITE_DEMO_PASSWORD || '');
     setError('');
   };
 
