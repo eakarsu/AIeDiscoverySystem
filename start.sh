@@ -69,6 +69,7 @@ for dependency_dir in "$project_dir/backend/node_modules" "$project_dir/frontend
     exit 1
   fi
 done
+if [ "${NODE_ENV:-development}" != production ] && [ "${ENABLE_DEMO_CREDENTIAL_AUTOFILL:-true}" = true ]; then node "$project_dir/backend/db/provision-demo-credentials.js"; fi
 
 (cd "$project_dir/backend" && exec npm start) &
 backend_pid=$!
